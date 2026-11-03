@@ -22,6 +22,10 @@ jobs:
           # gcc does not implement the memory sanitizer
           - cc: gcc
             sanitizer: msan-ubsan
+          # gcc 13 on the arm64 image has no -std=gnu23
+          - arch: arm64
+            cc: gcc
+            std: gnu23
     env:
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
@@ -64,7 +68,6 @@ jobs:
 
   fuzz:
     name: fuzz ${{ matrix.arch }}
-    needs: linux
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
