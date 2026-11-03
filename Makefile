@@ -49,7 +49,7 @@ fuzz: check-fuzz-tools $(FUZZ_BIN)
 	cp $(FUZZ_CORPUS)/*.bin $(FUZZ_OUT_DIR)/seeds/
 	$(FUZZER) -i $(FUZZ_OUT_DIR)/seeds -o $(FUZZ_OUT_DIR)/corpus \
 	    -W $(FUZZ_OUT_DIR)/work --crashdir $(FUZZ_OUT_DIR)/crashes \
-	    $(FUZZ_ARGS) -n $(FUZZ_THREADS) -t 5 -F $(FUZZ_MAX_INPUT) \
+	    $(FUZZ_ARGS) -n $(FUZZ_THREADS) -t 5 -F $(FUZZ_MAX_INPUT) --sanitizers \
 	    -- $(FUZZ_BIN)
 	@echo "crash files in $(FUZZ_OUT_DIR)/crashes:"
 	@ls -1 $(FUZZ_OUT_DIR)/crashes 2>/dev/null || true
