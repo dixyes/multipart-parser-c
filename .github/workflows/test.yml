@@ -95,3 +95,13 @@ jobs:
 
       - name: Fuzz for three minutes
         run: make fuzz HONGGFUZZ_DIR="$RUNNER_TEMP/honggfuzz" FUZZ_RUN_TIME=180
+
+      - name: Upload crash inputs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crashes-${{ matrix.arch }}
+          path: |
+            test/out/fuzz/crashes
+            test/out/fuzz/work/HONGGFUZZ.REPORT.TXT
+          if-no-files-found: ignore
