@@ -19,10 +19,10 @@
     fprintf(stderr, "[MULTIPART_PARSER] line %d: " format "\n", __LINE__, __VA_ARGS__); \
 } while(0)
 #define multipart_log_c(format) do {\
-    if (isprint(c)) { \
+    if (isprint((unsigned char)c)) { \
         multipart_log("parsing '%c' " format, c); \
     } else { \
-        multipart_log("parsing '\\x%0.2x' " format, c); \
+        multipart_log("parsing '\\x%0.2x' " format, (unsigned char)c); \
     } \
 } while(0)
 #else
@@ -173,10 +173,10 @@ int multipart_parser_error_msg(multipart_parser* p, char *buf, size_t len) {
     if ((size_t) ret >= len) {
         return ret;
     }
-    if (isprint(p->error_unexpected)) {
+    if (isprint((unsigned char)p->error_unexpected)) {
         ret += snprintf(buf + ret, len - ret, "at %zu, but it is '%c'", p->error_i, p->error_unexpected);
     } else {
-        ret += snprintf(buf + ret, len - ret, "at %zu, but it is '\\x%.2x'", p->error_i, p->error_unexpected);
+        ret += snprintf(buf + ret, len - ret, "at %zu, but it is '\\x%.2x'", p->error_i, (unsigned char)p->error_unexpected);
     }
     return ret;
 }
