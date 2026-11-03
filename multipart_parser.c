@@ -194,7 +194,8 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
     size_t mark = 0;
     size_t mark_end = 0;
     size_t candidate_start = 0;
-    char c, cl;
+    char c;
+    unsigned char uc;
     int is_last = 0;
     int ret;
 
@@ -281,19 +282,19 @@ do { \
                     p->state = s_headers_almost_done;
                     break;
                 }
-                if (c == '-') {
-                    if (is_last) {
-                        EMIT_DATA_CB(header_field, i + 1, buf + mark, i - mark + 1);
-                    }
-                    break;
-                }
                 if (c == ':') {
                     p->state = s_header_value_start;
                     EMIT_DATA_CB(header_field, i + 1, buf + mark, i - mark);
                     break;
                 }
-                cl = c | 0x20;
-                if (cl < 'a' || cl > 'z') {
+                // tchar of RFC 7230, the characters allowed in a header field name
+                uc = (unsigned char)c;
+                if (!((uc >= 'a' && uc <= 'z') || (uc >= 'A' && uc <= 'Z') ||
+                        (uc >= '0' && uc <= '9') ||
+                        uc == '!' || uc == '#' || uc == '$' || uc == '%' ||
+                        uc == '&' || uc == '\'' || uc == '*' || uc == '+' ||
+                        uc == '-' || uc == '.' || uc == '^' || uc == '_' ||
+                        uc == '`' || uc == '|' || uc == '~')) {
                     multipart_log_c("invalid character in header field");
                     p->error_unexpected = c;
                     ERROR_OUT(MPPE_INVALID_HEADER_FIELD_CHAR);
