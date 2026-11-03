@@ -60,6 +60,13 @@ int multipart_parser_init(multipart_parser *mp, const char *boundary, size_t bou
         errno = EINVAL;
         return -1;
     }
+    // boundary == NULL keeps the previous boundary; a parser that was never
+    // initialised can hold an arbitrary length, which is not usable as the
+    // zero-fill offset
+    if (mp->boundary_length != 0 &&
+            (mp->boundary_length < 3 || mp->boundary_length > BOUNDARY_MAX_LEN + 2)) {
+        mp->boundary_length = 0;
+    }
     if (boundary != NULL && boundary_length != 0) {
         memcpy(mp->multipart_boundary, "--", 2);
         memcpy(mp->multipart_boundary + 2, boundary, boundary_length);
