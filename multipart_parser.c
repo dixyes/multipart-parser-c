@@ -132,10 +132,8 @@ int multipart_parser_error_msg(multipart_parser* p, char *buf, size_t len) {
             return 0;
         case MPPE_PAUSED:
             return snprintf(buf, len, "parser paused");
-        case MPPE_UNKNOWN:
-        default:
-            abort();
-            return 0;
+        case MPPE_EARLY_EOF:
+            return snprintf(buf, len, "early EOF");
         case MPPE_BOUNDARY_END_NO_CRLF:
             ret = snprintf(buf, len, "no CRLF at first boundary end: ");
             break;
@@ -154,6 +152,8 @@ int multipart_parser_error_msg(multipart_parser* p, char *buf, size_t len) {
         case MPPE_END_BOUNDARY_NO_DASH:
             ret = snprintf(buf, len, "bad final hyphen: ");
             break;
+        default:
+            return snprintf(buf, len, "unknown parser error");
     }
     if (ret < 0) {
         return 0;
