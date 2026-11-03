@@ -438,7 +438,7 @@ static int check_error_msg(void) {
     CHECK(len > 0 && strstr(msg, "unknown parser error") != NULL);
 
     parser.error_reason = MPPE_INVALID_HEADER_FIELD_CHAR;
-    parser.error_unexpected = (char)0xFF;
+    parser.error_unexpected = (char)-1; /* 0xff */
     len = multipart_parser_error_msg(&parser, msg, sizeof(msg));
     CHECK(len > 0 && strstr(msg, "\\xff") != NULL);
     return 0;
