@@ -3,14 +3,92 @@ name: tests
 on: [push, pull_request]
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
+  linux:
+    name: linux ${{ matrix.arch }} ${{ matrix.cc }} ${{ matrix.std }} ${{ matrix.sanitizer }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
+        cc: [gcc, clang]
+        std: [gnu99, gnu23]
+        sanitizer: [asan-ubsan, msan-ubsan]
+        include:
+          - arch: x86_64
+            os: ubuntu-latest
+          - arch: arm64
+            os: ubuntu-24.04-arm
+        exclude:
+          # gcc does not implement the memory sanitizer
+          - cc: gcc
+            sanitizer: msan-ubsan
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Test
-        shell: bash
         run: |
-          make tests
+          if [ "${{ matrix.sanitizer }}" = msan-ubsan ]; then
+            san="-fsanitize=memory,undefined -fsanitize-memory-track-origins=2 -fno-sanitize-recover=all -fno-omit-frame-pointer"
+          else
+            san="-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
+          fi
+          make CC="${{ matrix.cc }}" \
+               CFLAGS="-std=${{ matrix.std }} -O1 -g -Wall -Wextra $san" tests
+
+  windows:
+    name: windows ${{ matrix.configuration }} msvc
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Test
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
+          if ('${{ matrix.configuration }}' -eq 'Release') {
+            $opt = '/O2 /MD /DNDEBUG'
+          } else {
+            $opt = '/Od /MDd /Zi /D_DEBUG'
+          }
+          cmd /c "call `"$vcvars`" && cl /nologo /std:c11 /W4 /WX /I. $opt multipart_parser.c test\multipart_test.c /Fe:multipart_test.exe && .\multipart_test.exe"
+
+  fuzz:
+    name: fuzz ${{ matrix.arch }}
+    needs: linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            os: ubuntu-latest
+          - arch: arm64
+            os: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install honggfuzz dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang binutils-dev libunwind-dev libblocksruntime-dev liblzma-dev zlib1g-dev
+
+      - name: Build honggfuzz
+        run: |
+          git clone --depth 1 https://github.com/google/honggfuzz.git "$RUNNER_TEMP/honggfuzz"
+          make -C "$RUNNER_TEMP/honggfuzz" -j"$(nproc)"
+
+      - name: Fuzz for three minutes
+        run: make fuzz HONGGFUZZ_DIR="$RUNNER_TEMP/honggfuzz" FUZZ_RUN_TIME=180
