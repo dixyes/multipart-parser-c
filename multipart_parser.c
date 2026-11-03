@@ -186,6 +186,7 @@ size_t multipart_parser_execute(multipart_parser* p, const char *buf, size_t len
     size_t i = 0;
     size_t mark = 0;
     size_t mark_end = 0;
+    size_t candidate_start = 0;
     char c, cl;
     int is_last = 0;
     int ret;
@@ -314,6 +315,7 @@ do { \
                 if (c == CR) {
                     p->state = s_header_value_almost_done;
                     EMIT_DATA_CB(header_value, i + 1, buf + mark, i - mark);
+                    break;
                 }
                 if (is_last) {
                     EMIT_DATA_CB(header_value, i + 1, buf + mark, i - mark + 1);
@@ -338,32 +340,18 @@ do { \
                 mark_end = i + 1;
                 if (c == CR) {
                     mark_end--;
-                    if (is_last) {
-                        if (i > 1) {
-                            EMIT_DATA_CB(part_data, i, buf + mark, mark_end - mark);
-                        } else {
-                            // donot trig callback
-                            return 0;
-                        }
-                    }
+                    candidate_start = i;
                     p->state = s_part_data_almost_boundary;
                     break;
                 }
                 if (is_last) {
                     EMIT_DATA_CB(part_data, i + 1, buf + mark, mark_end - mark);
+                    mark = mark_end;
                 }
                 break;
             case s_part_data_almost_boundary:
                 multipart_log_c("s_part_data_almost_boundary");
                 if (c == LF) {
-                    if (is_last) {
-                        if (i > 2) {
-                            EMIT_DATA_CB(part_data, mark_end, buf + mark, mark_end - mark);
-                        } else {
-                            // donot trig callback
-                            return 0;
-                        }
-                    }
                     p->state = s_part_data_boundary;
                     p->index = 0;
                     break;
@@ -376,17 +364,16 @@ do { \
                     p->state = s_part_data;
                     goto data_rollback;
                 }
-                if (is_last) {
-                    if (i > p->index + 2) {
-                        EMIT_DATA_CB(part_data, i - p->index - 2, buf + mark, mark_end - mark);
-                    } else {
-                        // donot trig callback
-                        return 0;
-                    }
-                }
                 if ((++p->index) == p->boundary_length) {
                     p->state = s_part_data_almost_end;
-                    EMIT_DATA_CB(part_data, i + 1, buf + mark, i + 1 - p->boundary_length - 2 - mark);
+                    // the boundary is complete, so the data run ends at the CR
+                    // that started the candidate; the candidate cannot start
+                    // before this buffer because an undecided candidate is
+                    // always handed back to the caller at the end of a call
+                    if (mark < candidate_start) {
+                        EMIT_DATA_CB(part_data, i + 1, buf + mark, candidate_start - mark);
+                    }
+                    mark = i + 1;
                 }
                 break;
             case s_part_data_almost_end:
@@ -430,6 +417,17 @@ do { \
                 ERROR_OUT(MPPE_UNKNOWN);
         }
         ++i;
+    }
+    // an undecided trailing boundary candidate: report the data before it,
+    // then leave the candidate bytes to the caller, which re-feeds them from
+    // the returned offset together with the next input
+    if (p->state == s_part_data_almost_boundary || p->state == s_part_data_boundary) {
+        p->state = s_part_data;
+        p->index = 0;
+        if (mark < candidate_start) {
+            EMIT_DATA_CB(part_data, candidate_start, buf + mark, candidate_start - mark);
+        }
+        return candidate_start;
     }
     return i;
 }
