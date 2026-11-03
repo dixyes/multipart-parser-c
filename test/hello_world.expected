@@ -1,0 +1,19 @@
+[PART_DATA_BEGIN]
+[HEADER_FIELD] "Content-Disposition"
+[HEADER_VALUE] "attachment; filename="hello world.txt""
+[HEADER_FIELD] "Content-Type"
+[HEADER_VALUE] "text/plain"
+[HEADERS_COMPLETE]
+[PART_DATA] "hello
+world
+hello world --hello world"
+[PART_DATA_END]
+[PART_DATA_BEGIN]
+[HEADER_FIELD] "Content-Disposition"
+[HEADER_VALUE] "attachment; filename="hello.html""
+[HEADER_FIELD] "Content-Type"
+[HEADER_VALUE] "text/html"
+[HEADERS_COMPLETE]
+[PART_DATA] "<!--hello world -->"
+[PART_DATA_END]
+[BODY_END]
